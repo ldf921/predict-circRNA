@@ -6,6 +6,11 @@ __pycache__/
 # C extensions
 *.so
 
+#Dataset
+*.bed
+*.fa
+*.bin
+
 # Distribution / packaging
 .Python
 env/
