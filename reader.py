@@ -1,5 +1,5 @@
 import numpy as np
-import cPickle as pkl
+import pickle as pkl
 from timeit import default_timer
 
 def complement(seq):
@@ -98,7 +98,7 @@ def read_data():
     try:
         with open('filt_locis.bin', 'rb') as f:
             locis = pkl.load(f)
-    except:
+    except IOError:
         locis = read_sequence('hsa_hg19_Rybak2015.bed', 1)
         locis.extend(read_sequence('all_exons.bed', 0))
 

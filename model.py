@@ -27,7 +27,6 @@ from __future__ import division
 from __future__ import print_function
 
 import numpy as np
-import pandas
 
 import tensorflow as tf
 from tensorflow.contrib import learn, layers
@@ -35,15 +34,15 @@ from tensorflow.contrib import learn, layers
 class RNNModel:
     def __init__(self, feature_dims, hidden_units = 100):
         x = tf.placeholder(tf.float32, [None, None, feature_dims])  
-        y = tf.placeholder(tf.float32, [None])
-        length = tf.placeholder(tf.float32, [None]) 
+        y = tf.placeholder(tf.float32, [None, 1])
+        length = tf.placeholder(tf.int32, [None]) 
         self.x, self.y, self.length = x, y, length
 
-        cell = tf.nn.rnn_cell.BasicLSTMCell(hidden_units)
+        cell = tf.nn.rnn_cell.LSTMCell(hidden_units, state_is_tuple=True)
 
         output, state = tf.nn.dynamic_rnn(
-            cell,
-            x,
+            cell=cell,
+            inputs=x,
             dtype=tf.float32,
             sequence_length=length,
         )
@@ -55,15 +54,15 @@ class RNNModel:
         flat = tf.reshape(output, [-1, out_size])
         relevant = tf.gather(flat, index)
 
+
         logit = layers.fully_connected(inputs=relevant, 
             num_outputs=1, 
             activation_fn=None,
             biases_initializer=None
         )
-
         loss = tf.nn.sigmoid_cross_entropy_with_logits(logit, y)
-        
-        self.loss = loss
+
+        self.loss = tf.reduce_mean(loss)
         self.learning_rate = tf.placeholder(tf.float32, [])
         self.train_op = tf.train.AdamOptimizer(self.learning_rate).minimize(loss)
 
