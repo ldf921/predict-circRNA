@@ -21,13 +21,11 @@ def get_feature_label(data):
 
 def train(steps = 100, batch_size = 20, learning_rate = 0.01):
     model = RNNModel(4)
-    sess = tf.Session()
-    sess.run(tf.initialize_all_variables())
 
     data = process_feature()
     for t in range(0, steps):
         x, y, length = get_feature_label(random.sample(data, batch_size))
-        loss = model.train(sess, x, y, length, learning_rate)
-        print('step = %d, loss = %.5f' % (t, loss))
+        result = model.train(x, y, length, learning_rate)
+        print("step = {}: {}".format(t, result))
 
 train()

@@ -29,7 +29,7 @@ from __future__ import print_function
 import numpy as np
 
 import tensorflow as tf
-from tensorflow.contrib import learn, layers
+from tensorflow.contrib import learn, layers, metrics
 
 class RNNModel:
     def __init__(self, feature_dims, hidden_units = 100):
@@ -60,20 +60,37 @@ class RNNModel:
             activation_fn=None,
             biases_initializer=None
         )
+
+        predictions = tf.sigmoid(logit) 
+
         loss = tf.nn.sigmoid_cross_entropy_with_logits(logit, y)
 
-        self.loss = tf.reduce_mean(loss)
+        auc, update_auc = metrics.streaming_auc(predictions, y, num_thresholds = 10)
+        stream_loss, update_stream_loss = metrics.streaming_mean(loss) 
+
+        self.update_metrics = [update_stream_loss, update_auc]
+        self.summaries = [auc, stream_loss]
+        self.summary_labels = ['auc', 'loss']
+
         self.learning_rate = tf.placeholder(tf.float32, [])
         self.train_op = tf.train.AdamOptimizer(self.learning_rate).minimize(loss)
 
-    def train(self, sess, x, y, length, learning_rate):
-        loss, _ = sess.run([self.loss, self.train_op], feed_dict={
+        sess = tf.Session()
+        sess.run(tf.initialize_local_variables())
+        sess.run(tf.initialize_all_variables())
+        self.sess = sess
+
+        self.summary_writer = tf.train.SummaryWriter('./train', sess.graph)
+        self.steps = 0
+
+    def train(self, x, y, length, learning_rate):
+        result = self.sess.run(self.summaries + [self.train_op] + self.update_metrics, feed_dict={
             self.x : x,
             self.y : y,
             self.length : length,
             self.learning_rate : learning_rate
         })
-        return loss 
+        return dict(zip(self.summary_labels, result))
 
 
 
