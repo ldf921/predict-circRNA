@@ -32,7 +32,7 @@ import tensorflow as tf
 from tensorflow.contrib import learn, layers, metrics
 
 class RNNModel:
-    def __init__(self, feature_dims, hidden_units = 100):
+    def __init__(self, feature_dims, hidden_units = 50):
         x = tf.placeholder(tf.float32, [None, None, feature_dims])  
         y = tf.placeholder(tf.float32, [None, 1])
         length = tf.placeholder(tf.int32, [None]) 
@@ -80,11 +80,20 @@ class RNNModel:
         sess.run(tf.initialize_all_variables())
         self.sess = sess
 
-        self.summary_writer = tf.train.SummaryWriter('./train', sess.graph)
-        self.steps = 0
+    def init_streaming(self):
+        self.sess.run(tf.initialize_local_variables())
+
+    def val(self, x, y, length):
+        result = self.sess.run(self.summaries + self.update_metrics, feed_dict={
+            self.x : x,
+            self.y : y,
+            self.length : length,
+        })
+        return dict(zip(self.summary_labels, result))
+
 
     def train(self, x, y, length, learning_rate):
-        result = self.sess.run(self.summaries + [self.train_op] + self.update_metrics, feed_dict={
+        result = self.sess.run(self.summaries + self.update_metrics + [self.train_op], feed_dict={
             self.x : x,
             self.y : y,
             self.length : length,
