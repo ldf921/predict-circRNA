@@ -30,7 +30,6 @@ def val(model, data, batch_size = 64):
 
     return model.get_summaries()    
 
-    
 def train(steps = 1000, val_per_steps = 100, checkpoint_per_steps=20, batch_size = 20, learning_rate = 0.01):
     global args
 
@@ -52,6 +51,10 @@ def train(steps = 1000, val_per_steps = 100, checkpoint_per_steps=20, batch_size
         if (t + 1) % checkpoint_per_steps == 0:
             model.save_checkpoint()
             logging.info("save checkpoint at {}".format(model.global_step))
+
+        if model.global_step % 200 == 0:
+            learning_rate *= 0.5 
+
 
 
 if __name__ == '__main__':
