@@ -26,13 +26,14 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import numpy as np
-
+import os
 import tensorflow as tf
-from tensorflow.contrib import learn, layers, metrics
+from tensorflow.contrib import learn, layers, metrics, framework
 
 class RNNModel:
-    def __init__(self, feature_dims, hidden_units = 50):
+    def __init__(self, feature_dims, hidden_units = 50, model_dir = None):
+        self.model_dir = model_dir
+
         x = tf.placeholder(tf.float32, [None, None, feature_dims])  
         y = tf.placeholder(tf.float32, [None, 1])
         length = tf.placeholder(tf.int32, [None]) 
@@ -73,12 +74,18 @@ class RNNModel:
         self.summary_labels = ['auc', 'loss']
 
         self.learning_rate = tf.placeholder(tf.float32, [])
-        self.train_op = tf.train.AdamOptimizer(self.learning_rate).minimize(loss)
+        self._global_step = framework.create_global_step()
+        self.train_op = tf.train.AdamOptimizer(self.learning_rate).minimize(loss, global_step=self._global_step)
+        self.saver = tf.train.Saver()
 
         sess = tf.Session()
         sess.run(tf.initialize_local_variables())
         sess.run(tf.initialize_all_variables())
         self.sess = sess
+
+    @property
+    def global_step(self):
+        return self.sess.run(self._global_step)
 
     def init_streaming(self):
         self.sess.run(tf.initialize_local_variables())
@@ -102,6 +109,11 @@ class RNNModel:
             self.learning_rate : learning_rate
         })
         return dict(zip(self.summary_labels, result))
+
+    def save_checkpoint(self):
+        assert self.model_dir is not None
+        self.saver.save(self.sess, os.path.join(self.model_dir, 
+            'model{}.ckpt'.format(self.global_step)))
 
 
 
