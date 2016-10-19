@@ -72,6 +72,7 @@ class RNNModel:
         self.update_metrics = [update_stream_loss, update_auc]
         self.summaries = [auc, stream_loss]
         self.summary_labels = ['auc', 'loss']
+        self.predictions = predictions
 
         self.learning_rate = tf.placeholder(tf.float32, [])
         self._global_step = framework.create_global_step()
@@ -110,11 +111,19 @@ class RNNModel:
         })
         return dict(zip(self.summary_labels, result))
 
+    def predict(self, x, length):
+        return self.sess.run(self.predictions, feed_dict={
+            self.x : x,
+            self.length : length,
+        })
+
     def save_checkpoint(self):
         assert self.model_dir is not None
         self.saver.save(self.sess, os.path.join(self.model_dir, 
             'model{}.ckpt'.format(self.global_step)))
 
+    def restore(self, checkpoint):
+        self.saver.restore(self.sess, checkpoint)
 
 
 

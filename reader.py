@@ -51,6 +51,8 @@ class Loci:
 
     @property
     def feature_dim(self):
+        if not hasattr(self, 'features'):
+            self.get_feature()
         return self.features.shape[1]
 
 
