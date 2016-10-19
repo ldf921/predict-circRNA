@@ -3,7 +3,7 @@ import random
 import numpy as np
 import tensorflow as tf
 from model import RNNModel
-from sklearn import cross_validation
+from sklearn import model_selection 
 import logging
 
 def get_feature_label(data):
@@ -22,7 +22,7 @@ def get_feature_label(data):
 
 def val(model, data, batch_size = 64):
     model.init_streaming()
-    
+
     for i in range(0, len(data), batch_size):
         model.val(*get_feature_label(data[i:i+batch_size]))
 
@@ -33,8 +33,8 @@ def train(steps = 1000, val_per_steps = 100, batch_size = 20, learning_rate = 0.
     model = RNNModel(4)
 
     data = process_feature()
-    kfolds = cross_validation.KFold(n = len(data), n_folds = 10, random_state = 233)
-    train_index, val_index = next(iter(kfolds))
+    kfolds = model_selection.KFold(n_splits = 10, shuffle = True, random_state = 233)
+    train_index, val_index = next(iter(kfolds.split(data)))
     train_data, val_data = [data[i] for i in train_index], [data[i] for i in val_index]
 
     for t in range(0, steps):
