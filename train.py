@@ -10,6 +10,7 @@ import logging
 import argparse
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+from operator import attrgetter
 
 def get_feature_label(data):
     length = np.array(list(map(lambda x : x.length, data)), dtype = np.int32)
@@ -106,6 +107,7 @@ if __name__ == '__main__':
     kfolds = model_selection.KFold(n_splits = 10, shuffle = True, random_state=args.seed)
     train_index, val_index = next(kfolds.split(data))
     train_data, val_data = [data[i] for i in train_index], [data[i] for i in val_index]
+    val_data = list(sorted(val_data, key=attrgetter('length')))
 
     if args.action is None:
         if args.checkpoint is not None:
