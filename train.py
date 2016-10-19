@@ -30,7 +30,7 @@ def val(model, data, batch_size = 64):
 
     return model.get_summaries()    
 
-def train(steps = 1000, val_per_steps = 100, checkpoint_per_steps=20, batch_size = 20, learning_rate = 0.01):
+def train(steps = 1000, val_per_steps = 100, checkpoint_per_steps=20, batch_size = 20, learning_rate = 0.04):
     global args
 
     data = process_feature()
@@ -54,6 +54,7 @@ def train(steps = 1000, val_per_steps = 100, checkpoint_per_steps=20, batch_size
 
         if model.global_step % 200 == 0:
             learning_rate *= 0.5 
+            logging.info("current learning rate = {}".format(learning_rate))
 
 
 
