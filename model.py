@@ -83,14 +83,16 @@ class RNNModel:
     def init_streaming(self):
         self.sess.run(tf.initialize_local_variables())
 
+    def get_summaries(self):
+        result = self.sess.run(self.summaries, feed_dict=None)
+        return dict(zip(self.summary_labels, result))
+
     def val(self, x, y, length):
-        result = self.sess.run(self.summaries + self.update_metrics, feed_dict={
+        self.sess.run(self.update_metrics, feed_dict={
             self.x : x,
             self.y : y,
             self.length : length,
         })
-        return dict(zip(self.summary_labels, result))
-
 
     def train(self, x, y, length, learning_rate):
         result = self.sess.run(self.summaries + self.update_metrics + [self.train_op], feed_dict={

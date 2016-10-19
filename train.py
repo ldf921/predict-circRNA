@@ -3,6 +3,8 @@ import random
 import numpy as np
 import tensorflow as tf
 from model import RNNModel
+from sklearn import cross_validation
+import logging
 
 def get_feature_label(data):
     length = np.array(list(map(lambda x : x.length, data)), dtype = np.int32)
@@ -18,14 +20,32 @@ def get_feature_label(data):
 
     return x, y, length
 
+def val(model, data, batch_size = 64):
+    model.init_streaming()
+    
+    for i in range(0, len(data), batch_size):
+        model.val(*get_feature_label(data[i:i+batch_size]))
 
-def train(steps = 100, batch_size = 20, learning_rate = 0.01):
+    return model.get_summaries()    
+
+    
+def train(steps = 1000, val_per_steps = 100, batch_size = 20, learning_rate = 0.01):
     model = RNNModel(4)
 
     data = process_feature()
-    for t in range(0, steps):
-        x, y, length = get_feature_label(random.sample(data, batch_size))
-        result = model.train(x, y, length, learning_rate)
-        print("step = {}: {}".format(t, result))
+    kfolds = cross_validation.KFold(n = len(data), n_folds = 10, random_state = 233)
+    train_index, val_index = next(iter(kfolds))
+    train_data, val_data = [data[i] for i in train_index], [data[i] for i in val_index]
 
+    for t in range(0, steps):
+        x, y, length = get_feature_label(random.sample(train_data, batch_size))
+        result = model.train(x, y, length, learning_rate)
+        logging.info("step = {}: {}".format(t, result))
+
+        if (t + 1) % val_per_steps == 0:
+            result = val(model, val_data)
+            logging.info("validation for step = {}: {}".format(t, result))
+
+
+logging.basicConfig(filename='train.log', level=logging.INFO)
 train()
