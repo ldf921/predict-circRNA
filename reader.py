@@ -104,7 +104,7 @@ def read_data():
         locis = read_sequence('hsa_hg19_Rybak2015.bed', 1)
         locis.extend(read_sequence('all_exons.bed', 0))
 
-        locis = filter(loci_filter, locis)
+        # locis = filter(loci_filter, locis)
         for l in locis:
             l.init_seq()
 
