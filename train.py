@@ -4,7 +4,7 @@ import numpy as np
 import tensorflow as tf
 from model import RNNModel
 from sklearn import model_selection
-from sklearn.metrics import roc_curve
+from sklearn.metrics import roc_curve, auc
 import os
 import logging
 import argparse
@@ -14,6 +14,7 @@ from operator import attrgetter
 
 def get_feature_label(data):
     length = np.array(list(map(lambda x : x.length, data)), dtype = np.int32)
+    # print(length)
     max_length = np.max(length) 
     feature_dim = data[0].feature_dim
     batch_size = len(data)
@@ -35,57 +36,106 @@ def val(model, data, batch_size = 64):
     for i in range(0, len(data), batch_size):
         model.val(*get_feature_label(data[i:i+batch_size]))
 
-    return model.get_summaries()    
+    return model.get_summaries()
 
-def train(train_data, val_data, steps = 1000, val_per_steps = 100, checkpoint_per_steps=20, batch_size = 20, learning_rate = 0.04):
+class SimpleLengthModel:
+    threshold_length = 1000
+    @classmethod
+    def data_filter(cls, data):
+        return data.length <= cls.threshold_length 
+
+def batch_data_provider(data, batch_size):    
+    data_label = [] 
+    for l in (0, 1):
+        data_label.append(list(filter(lambda d : d.label == l, data)))
+    samples_label = [int(batch_size / 2), int(batch_size / 2) ]
+
+    while True:
+        yield random.sample(data_label[0], samples_label[0]) + random.sample(data_label[1], samples_label[1])
+
+
+def train(train_data, val_data, steps = 5000, val_per_steps = 200, checkpoint_per_steps=100, batch_size = 64, learning_rate = 0.01):
     global args
 
-    model = RNNModel(feature_dims=data[0].feature_dim, model_dir=args.output_dir)
+    train_data = list(filter(SimpleLengthModel.data_filter, train_data))
+    val_data = list(filter(SimpleLengthModel.data_filter, val_data))
+
+    model = RNNModel(feature_dims=train_data[0].feature_dim, model_dir=args.output_dir)
+    data_provider = batch_data_provider(train_data, batch_size=batch_size)
 
     for t in range(0, steps):
-        x, y, length = get_feature_label(random.sample(train_data, batch_size))
+        x, y, length = get_feature_label(next(data_provider))
         result = model.train(x, y, length, learning_rate)
         logging.info("step = {}: {}".format(model.global_step, result))
 
         if (t + 1) % val_per_steps == 0:
             result = val(model, val_data)
+            model.init_streaming()
             logging.info("validation for step = {}: {}".format(model.global_step, result))
 
         if (t + 1) % checkpoint_per_steps == 0:
             model.save_checkpoint()
             logging.info("save checkpoint at {}".format(model.global_step))
 
-        if model.global_step % 200 == 0:
+        if model.global_step % 1000 == 0:
             learning_rate *= 0.5 
             logging.info("current learning rate = {}".format(learning_rate))
 
-def test(data, batch_size=64):
+def test(data, batch_size=64, filename='roc.png'):
     global args
 
     assert args.checkpoint is not None
     model = RNNModel(feature_dims=data[0].feature_dim, model_dir=args.output_dir)
     model.restore(args.checkpoint)
 
-    predictions = []
-    labels = []
     for i in tqdm(range(0, len(data), batch_size)):
-        x, y, length = get_feature_label(data[i:i+batch_size])
-        predictions.append(model.predict(x, length))
-        labels.append(y)
+        if SimpleLengthModel.data_filter(data[i]):
+            x, y, length = get_feature_label(data[i:i+batch_size])
+            predictions = model.predict(x, length)
+            for l,p in zip(data[i:i+batch_size], predictions):
+                l.prediction = p 
+        else:
+            for l in data[i:i+batch_size]:
+                l.prediction = 1 + l.length / 100000.0
 
-    predictions = np.concatenate(predictions)
-    labels = np.concatenate(labels)
 
-    fpr, tpr, _ = roc_curve(labels, predictions)
-    plt.plot(fpr, tpr, label="Model")
+    predictions = list(map(attrgetter('prediction'), data))
+    labels = list(map(attrgetter('label'), data)) 
+
+    plot_roc(predictions, labels, filename=filename)
+
+def baseline(data, filename):
+    labels = list(map(attrgetter('label'), data))
+    predictions = list(map(attrgetter('length'), data))
+    plot_roc(predictions, labels, filename=filename)
+
+def plot_roc(predictions, labels, plot_samples = 50, filename='roc.png'):
+    global args
+
+    fpr, tpr, th = roc_curve(labels, predictions)
+
+    plot_samples = min(plot_samples, len(fpr))
+    indices = np.round(np.arange(0, plot_samples) * len(fpr) / plot_samples).astype(np.int32)
+
+    th = th - np.min(th)
+    th = th / np.max(th)
+    
+    r = auc(fpr, tpr)
+    print(r)
+    plt.figure(figsize=(9, 7), dpi=96)
+    plt.plot(fpr[indices], tpr[indices], label="Model")
     plt.plot([0, 1], [0, 1], linestyle='--', label="Guess")
+    plt.plot(fpr[indices], th[indices], label = "Threshold")
+    plt.legend()
+    plt.title('auc = {}'.format(r))
+    plt.savefig(os.path.join(args.output_dir, filename))
     plt.show()
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--seed', type=int, default=233)
-    parser.add_argument('-o', '--output_dir', type=str, default='model')
+    parser.add_argument('-o', '--output_dir', type=str, default='temp')
     parser.add_argument('-c', '--checkpoint', type=str, default=None)
     parser.add_argument('action', type=str, default=None)
 
@@ -117,5 +167,10 @@ if __name__ == '__main__':
 
     if args.action == 'train':
         train(train_data, val_data)
+    elif args.action == 'baseline':
+        # baseline(list(filter(SimpleLengthModel.data_filter, val_data)))
+        baseline(val_data, filename='roc_baseline_full.png')
     elif args.action == 'test':
-        test(val_data)
+        test(list(filter(SimpleLengthModel.data_filter, val_data)), filename='roc_1k.png')
+        # test(val_data, filename='roc_all.png')
+
