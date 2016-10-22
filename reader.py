@@ -1,6 +1,11 @@
 import numpy as np
 import pickle as pkl
 from timeit import default_timer
+from operator import attrgetter, itemgetter
+from itertools import groupby, filterfalse
+import math
+import bisect
+from tqdm import tqdm
 
 def complement(seq):
     complement = {'A': 'T', 'C': 'G', 'G': 'C', 'T': 'A'}
@@ -55,6 +60,10 @@ class Loci:
             self.get_feature()
         return self.features.shape[1]
 
+    @property
+    def chrom_strand(self):
+        return self.chr + self.strand
+
 
     whole_seq = None
 
@@ -63,7 +72,7 @@ class Loci:
             Loci.whole_seq = get_hg19_whole_seq()
 
         seq = self.whole_seq[self.chr]
-        extract_seq = seq[self.start: self.end]
+        extract_seq = seq[self.start : self.end]
         extract_seq = extract_seq.upper()
         if extract_seq.find('N') != -1:
             self.seq = None
@@ -92,8 +101,49 @@ def read_sequence(file_name, label):
                 locis.append(l)
         return locis
 
-def loci_filter(l):
-    return 500 <= l.length < 3000
+class ChromPositions:
+    @staticmethod
+    def group_locis(locis):
+        return groupby(sorted(map(lambda l : (l.chrom_strand, l), locis), key=itemgetter(0)), key=itemgetter(0))
+
+    def __init__(self, locis):
+        self.chrom_positions = dict()
+
+        for chrom, locis in self.group_locis(locis):
+            assert chrom not in self.chrom_positions
+            start_positions = [] 
+            end_positions = [] 
+            start, end = 0, -math.inf
+            for l in sorted(map(itemgetter(1), locis), key=attrgetter('start')):
+                if end < l.start:
+                    if end > 0:
+                        start_positions.append(start)
+                        end_positions.append(end)
+                    start, end = l.start, l.end
+                else:
+                    end = max(end, l.end)
+            if end > 0:
+                start_positions.append(start)
+                end_positions.append(end)
+
+            self.chrom_positions[chrom] = (start_positions, end_positions)
+
+    def get_intersection(self, loci):
+        start_positions, end_positions = self.chrom_positions.get(loci.chrom_strand, ([], []))
+        lp = bisect.bisect_right(end_positions, loci.start)
+        rp = bisect.bisect_left(start_positions, loci.end)
+        return list(zip(start_positions[lp:rp], end_positions[lp:rp]))
+
+    def is_intersect(self, loci):
+        start_positions, end_positions = self.chrom_positions.get(loci.chrom_strand, ([], []))
+        lp = bisect.bisect_right(end_positions, loci.start)
+        rp = bisect.bisect_left(start_positions, loci.end)
+        return lp < rp
+
+
+def filter_negative(locis_pos, locis_neg):
+    positions = ChromPositions(locis_pos)
+    return filterfalse(lambda l : positions.is_intersect(l), locis_neg)
 
 def read_data():
     T0 = default_timer()
@@ -102,10 +152,13 @@ def read_data():
             locis = pkl.load(f)
     except IOError:
         locis = read_sequence('hsa_hg19_Rybak2015.bed', 1)
-        locis.extend(read_sequence('all_exons.bed', 0))
+        locis_neg = read_sequence('all_exons.bed', 0)
+        lp = len(locis)
+        locis.extend(filter_negative(locis, locis_neg))
+        ln = len(locis) - lp
+        print(lp, ln)
 
-        # locis = filter(loci_filter, locis)
-        for l in locis:
+        for l in tqdm(locis):
             l.init_seq()
 
         with open('filt_locis.bin', 'wb') as f:
@@ -115,6 +168,7 @@ def read_data():
 
 
 def process_feature():
+    '''Deprecated'''
     T0 = default_timer()
     
     locis = read_data()
