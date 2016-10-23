@@ -37,7 +37,7 @@ def val(model, data, batch_size = 64):
     model.init_streaming()
 
     for i in range(0, len(data), batch_size):
-        model.val(*get_feature_label(data[i:i+batch_size]))
+        model.val(*get_feature_label(data[i:i+batch_size], length_limit = 1000))
 
     return model.get_summaries()
 
