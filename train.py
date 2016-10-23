@@ -11,11 +11,12 @@ import argparse
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 from operator import attrgetter
+import math
 
-def get_feature_label(data):
+def get_feature_label(data, length_limit = math.inf):
     length = np.array(list(map(lambda x : x.length, data)), dtype = np.int32)
     # print(length)
-    max_length = np.max(length) 
+    max_length = min(np.max(length), length_limit)
     feature_dim = data[0].feature_dim
     batch_size = len(data)
     x = np.zeros([batch_size, max_length, feature_dim])
@@ -25,7 +26,9 @@ def get_feature_label(data):
         if not hasattr(data[i], 'features'):
             data[i].get_feature()
 
-        x[i, : data[i].length, :] = data[i].features
+        length[i] = min(length[i], length_limit)
+        s = np.random.randint(data[i].length - length[i] + 1)
+        x[i, : length[i], :] = data[i].features[s : s + length[i], :]
         y[i, 0] = data[i].label
 
     return x, y, length
@@ -64,7 +67,7 @@ def train(train_data, val_data, steps = 5000, val_per_steps = 200, checkpoint_pe
     data_provider = batch_data_provider(train_data, batch_size=batch_size)
 
     for t in range(0, steps):
-        x, y, length = get_feature_label(next(data_provider))
+        x, y, length = get_feature_label(next(data_provider), length_limit=1000)
         result = model.train(x, y, length, learning_rate)
         logging.info("step = {}: {}".format(model.global_step, result))
 
