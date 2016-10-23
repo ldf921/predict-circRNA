@@ -64,6 +64,8 @@ def train(train_data, val_data, steps = 5000, val_per_steps = 200, checkpoint_pe
     # val_data = list(filter(SimpleLengthModel.data_filter, val_data))
 
     model = RNNModel(feature_dims=train_data[0].feature_dim, model_dir=args.output_dir)
+    if args.checkpoint is not None:
+        model.restore(args.checkpoint)
     data_provider = batch_data_provider(train_data, batch_size=batch_size)
 
     for t in range(0, steps):
