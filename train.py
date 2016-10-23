@@ -57,8 +57,8 @@ def batch_data_provider(data, batch_size):
 def train(train_data, val_data, steps = 5000, val_per_steps = 200, checkpoint_per_steps=100, batch_size = 64, learning_rate = 0.01):
     global args
 
-    train_data = list(filter(SimpleLengthModel.data_filter, train_data))
-    val_data = list(filter(SimpleLengthModel.data_filter, val_data))
+    # train_data = list(filter(SimpleLengthModel.data_filter, train_data))
+    # val_data = list(filter(SimpleLengthModel.data_filter, val_data))
 
     model = RNNModel(feature_dims=train_data[0].feature_dim, model_dir=args.output_dir)
     data_provider = batch_data_provider(train_data, batch_size=batch_size)
@@ -171,6 +171,6 @@ if __name__ == '__main__':
         # baseline(list(filter(SimpleLengthModel.data_filter, val_data)))
         baseline(val_data, filename='roc_baseline_full.png')
     elif args.action == 'test':
-        test(list(filter(SimpleLengthModel.data_filter, val_data)), filename='roc_1k.png')
-        # test(val_data, filename='roc_all.png')
+        # test(list(filter(SimpleLengthModel.data_filter, val_data)), filename='roc_1k.png')
+        test(val_data, filename='roc_model.png')
 

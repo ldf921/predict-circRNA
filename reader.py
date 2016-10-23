@@ -86,7 +86,7 @@ class Loci:
         features = [ func(self) for func in extract_func]
         self.features = np.concatenate(features, axis = 1)
 
-def read_sequence(file_name, label):    
+def read_sequence(file_name, label, extract_exon = False):    
     with open(file_name, 'r') as f:
         locis = []
         for line in f.readlines():
@@ -98,7 +98,17 @@ def read_sequence(file_name, label):
                 l.end = int(tokens[2])
                 l.strand = tokens[5 if len(tokens) > 6 else 3]
                 l.label = label
-                locis.append(l)
+                if len(tokens) >= 12 and extract_exon:
+                    for size, relative_start in zip(map(int, tokens[10].split(',')), map(int ,tokens[11].split(','))):
+                        e = Loci()
+                        e.chr = l.chr
+                        e.start = l.start + relative_start
+                        e.end = e.start + size
+                        e.strand = l.strand
+                        e.label = label
+                        locis.append(e)
+                else:
+                    locis.append(l)
         return locis
 
 class ChromPositions:
@@ -151,12 +161,12 @@ def read_data():
         with open('filt_locis.bin', 'rb') as f:
             locis = pkl.load(f)
     except IOError:
-        locis = read_sequence('hsa_hg19_Rybak2015.bed', 1)
+        locis = read_sequence('hsa_hg19_Rybak2015.bed', 1, True)
         locis_neg = read_sequence('all_exons.bed', 0)
         lp = len(locis)
         locis.extend(filter_negative(locis, locis_neg))
         ln = len(locis) - lp
-        print(lp, ln)
+        print("Number of postives {}, Number of negatives {}".format(lp, ln))
 
         for l in tqdm(locis):
             l.init_seq()
