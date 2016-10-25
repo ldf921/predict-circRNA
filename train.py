@@ -14,6 +14,12 @@ from operator import attrgetter
 import math
 
 def get_feature_label(data, length_limit = math.inf):
+    data = list(filter(lambda d: d.seq is not None, data))
+    for i in range(len(data)):
+        if not hasattr(data[i], 'features'):
+            data[i].get_feature()    
+    
+
     length = np.array(list(map(lambda x : x.length, data)), dtype = np.int32)
     # print(length)
     max_length = min(np.max(length), length_limit)
@@ -23,9 +29,6 @@ def get_feature_label(data, length_limit = math.inf):
     y = np.zeros([batch_size, 1])
 
     for i in range(len(data)):
-        if not hasattr(data[i], 'features'):
-            data[i].get_feature()
-
         length[i] = min(length[i], length_limit)
         s = np.random.randint(data[i].length - length[i] + 1)
         x[i, : length[i], :] = data[i].features[s : s + length[i], :]
@@ -41,11 +44,11 @@ def val(model, data, batch_size = 64):
 
     return model.get_summaries()
 
-class SimpleLengthModel:
-    threshold_length = 1000
-    @classmethod
-    def data_filter(cls, data):
-        return data.length <= cls.threshold_length 
+# class SimpleLengthModel:
+#     threshold_length = 1000
+#     @classmethod
+#     def data_filter(cls, data):
+#         return data.length <= cls.threshold_length 
 
 def batch_data_provider(data, batch_size):    
     data_label = [] 
@@ -55,7 +58,6 @@ def batch_data_provider(data, batch_size):
 
     while True:
         yield random.sample(data_label[0], samples_label[0]) + random.sample(data_label[1], samples_label[1])
-
 
 def train(train_data, val_data, steps = 5000, val_per_steps = 200, checkpoint_per_steps=100, batch_size = 64, learning_rate = 0.01):
     global args
@@ -73,12 +75,12 @@ def train(train_data, val_data, steps = 5000, val_per_steps = 200, checkpoint_pe
         result = model.train(x, y, length, learning_rate)
         logging.info("step = {}: {}".format(model.global_step, result))
 
-        if (t + 1) % val_per_steps == 0:
+        if model.global_step % val_per_steps == 0:
             result = val(model, val_data)
             model.init_streaming()
             logging.info("validation for step = {}: {}".format(model.global_step, result))
 
-        if (t + 1) % checkpoint_per_steps == 0:
+        if model.global_step % checkpoint_per_steps == 0:
             model.save_checkpoint()
             logging.info("save checkpoint at {}".format(model.global_step))
 
@@ -94,14 +96,18 @@ def test(data, batch_size=64, filename='roc.png'):
     model.restore(args.checkpoint)
 
     for i in tqdm(range(0, len(data), batch_size)):
-        if SimpleLengthModel.data_filter(data[i]):
-            x, y, length = get_feature_label(data[i:i+batch_size])
-            predictions = model.predict(x, length)
-            for l,p in zip(data[i:i+batch_size], predictions):
-                l.prediction = p 
-        else:
-            for l in data[i:i+batch_size]:
-                l.prediction = 1 + l.length / 100000.0
+        x, y, length = get_feature_label(data[i:i+batch_size], length_limit=10000)
+        predictions = model.predict(x, length)
+        for l,p in zip(data[i:i+batch_size], predictions):
+            l.prediction = p 
+        # if SimpleLengthModel.data_filter(data[i]):
+            # x, y, length = get_feature_label(data[i:i+batch_size], length_limit=1000)
+            # predictions = model.predict(x, length)
+            # for l,p in zip(data[i:i+batch_size], predictions):
+            #     l.prediction = p 
+        # else:
+        #     for l in data[i:i+batch_size]:
+        #         l.prediction = 1 + l.length / 100000.0
 
 
     predictions = list(map(attrgetter('prediction'), data))
@@ -171,11 +177,14 @@ if __name__ == '__main__':
             args.action = 'train'
 
     if args.action == 'train':
-        train(train_data, val_data)
+        train(train_data, val_data, batch_size=40, learning_rate=5e-3)
     elif args.action == 'baseline':
         # baseline(list(filter(SimpleLengthModel.data_filter, val_data)))
         baseline(val_data, filename='roc_baseline_full.png')
     elif args.action == 'test':
         # test(list(filter(SimpleLengthModel.data_filter, val_data)), filename='roc_1k.png')
         test(val_data, filename='roc_model.png')
+        # val_data = list(filter(lambda x : x.length > 1000, val_data))
+        # print(len(val_data))
+        # test(val_data, filename='roc_gt1000.png')
 
