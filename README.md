@@ -7,9 +7,9 @@ python ./train.py ACTION -o MODEL_DIR [-c CHECK_POINT --seed RANDOM_SEED]
 ```
 
 ### Parameters
-RANDOM_SEED: random seed for split training data and validation data
-ACTION: Could be `train` or `test`. 
-CHECK_POINT: Load a model. (modelxxxx.ckpt)
++ ACTION: Could be `train` or `test`. 
++ CHECK_POINT: Load a model. (modelxxxx.ckpt)
++ *optional* RANDOM_SEED: random seed for split training data and validation data
 
 ### Example
 ```
