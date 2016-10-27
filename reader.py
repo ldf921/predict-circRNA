@@ -6,6 +6,11 @@ from itertools import groupby, filterfalse
 import math
 import bisect
 from tqdm import tqdm
+from sklearn.externals import joblib
+import os
+import re
+import random
+from hmmlearn.hmm import MultinomialHMM
 
 def complement(seq):
     complement = {'A': 'T', 'C': 'G', 'G': 'C', 'T': 'A'}
@@ -13,9 +18,10 @@ def complement(seq):
     return complseq
 
 def reverse_complement(seq):
-    seq = list(seq)
-    seq.reverse()
-    return ''.join(complement(seq))
+    # seq = list(seq)
+    # seq.reverse()
+    # return ''.join(complement(seq))
+    return seq.reverse_complement()
     
 def get_seq_for_circularRNA(circbase, whole_seq):
     fp = open(circbase, 'r')
@@ -42,10 +48,10 @@ def get_hg19_whole_seq():
     return whole_seq
 
 def feature_base(l):
-    index = {'A' : 0, 'G' : 1, 'C' : 2, 'T' : 3}
-    seq_tag = [index[c] for c in l.seq]
+    # index = {'A' : 0, 'G' : 1, 'C' : 2, 'T' : 3}
+    # seq_tag = [index[c] for c in l.seq]
     feature = np.zeros([l.length, 4], dtype=np.float32)
-    feature[np.arange(0, l.length), seq_tag] = 1
+    feature[np.arange(0,l.length,dtype=np.int32), l.seq] = 1
     return feature
 
 class Loci:
@@ -81,10 +87,23 @@ class Loci:
                 extract_seq =  reverse_complement(extract_seq)
             self.seq = extract_seq
 
+    def decode_seq(self):
+        if self.seq is not None:
+            seq = np.array(list(self.seq))
+            self.seq = np.array((seq == 'G') + (seq == 'C') * 2 + (seq == 'T') * 3)
+
+    extract_func = [feature_base]
     def get_feature(self):
-        extract_func = [feature_base]
-        features = [ func(self) for func in extract_func]
+        # print(self.seq)
+        self.decode_seq()
+        features = [ func(self) for func in self.extract_func]
         self.features = np.concatenate(features, axis = 1)
+
+def get_token(regex, tokens):
+    for s in tokens:
+        if re.match(regex, s):
+            return s
+    assert False, 'Fail to match %s' % regex
 
 def read_sequence(file_name, label, extract_exon = False):    
     with open(file_name, 'r') as f:
@@ -96,7 +115,7 @@ def read_sequence(file_name, label, extract_exon = False):
                 l.chr = tokens[0] 
                 l.start = int(tokens[1])
                 l.end = int(tokens[2])
-                l.strand = tokens[5 if len(tokens) > 6 else 3]
+                l.strand = get_token(r'[\+-]', tokens)
                 l.label = label
                 if len(tokens) >= 12 and extract_exon:
                     for size, relative_start in zip(map(int, tokens[10].split(',')), map(int ,tokens[11].split(','))):
@@ -110,6 +129,39 @@ def read_sequence(file_name, label, extract_exon = False):
                 else:
                     locis.append(l)
         return locis
+
+class AluFeatureExtrator:
+    def __init__(self, model_file = None, components = None):
+
+        if os.path.exists(model_file):
+            self.model = joblib.load(model_file)
+        else:
+            alu_file = 'Alu_sequence.pkl'
+            if os.path.exists(alu_file):
+                locis = joblib.load(alu_file)
+            else:
+                locis = read_sequence('hg19_Alu.bed', 0)
+                locis = random.sample(locis, 100000)
+                for l in tqdm(locis):
+                    l.init_seq()
+                    l.decode_seq()
+                locis = list(filter(lambda l : l.seq is not None, locis))
+                joblib.dump(locis, alu_file)
+
+            print('Alu Loaded')
+            locis = locis[0:5000]
+            model = MultinomialHMM(n_components=components, verbose=True, n_iter=50)
+            x = np.concatenate(list(map(attrgetter('seq'), locis)))
+            x = np.reshape(x, [x.shape[0], 1])
+            length = list(map(attrgetter('length'), locis))
+            model.fit(x, length)
+            self.model = model
+            joblib.dump(self.model, model_file)
+
+    def __call__(self, l):
+        prob = np.dot(self.model.predict_proba(np.reshape(l, [-1, 1])),
+            self.model.emissionprob_)
+        return prob[np.arange(0,l.length,dtype=np.int32), l.seq].reshape(-1, 1)
 
 class ChromPositions:
     @staticmethod
@@ -150,6 +202,18 @@ class ChromPositions:
         rp = bisect.bisect_left(start_positions, loci.end)
         return lp < rp
 
+class AluIntersectionExtrator:
+    def __init__(self):
+        model_file = 'Alu_position.pkl'
+        if os.path.exists(model_file):
+            self.model = joblib.load(model_file)
+        else:
+            locis = read_sequence('hg19_Alu.bed', 0)
+            self.model = ChromPositions(locis)
+            joblib.dump(self.model, model_file)
+
+    def __call__(self, l):
+        return None
 
 def filter_negative(locis_pos, locis_neg):
     positions = ChromPositions(locis_pos)
@@ -157,6 +221,8 @@ def filter_negative(locis_pos, locis_neg):
 
 def read_data():
     T0 = default_timer()
+    # Loci.extract_func.append(AluFeatureExtrator(components=20, model_file="hmm_Alu_big.pkl"))
+    Loci.extract_func.append(AluFeatureExtrator(components=20, model_file="hmm_Alu_big.pkl"))
     try:
         with open('filt_locis.bin', 'rb') as f:
             locis = pkl.load(f)
@@ -174,6 +240,7 @@ def read_data():
         with open('filt_locis.bin', 'wb') as f:
             pkl.dump(locis, f)
     print('read data used %.3fs' % (default_timer() - T0))
+
     return locis
 
 

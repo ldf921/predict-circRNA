@@ -59,13 +59,13 @@ def batch_data_provider(data, batch_size):
     while True:
         yield random.sample(data_label[0], samples_label[0]) + random.sample(data_label[1], samples_label[1])
 
-def train(train_data, val_data, steps = 5000, val_per_steps = 200, checkpoint_per_steps=100, batch_size = 64, learning_rate = 0.01):
+def train(train_data, val_data, steps = 6000, val_per_steps = 300, checkpoint_per_steps=100, batch_size = 64, learning_rate = 0.01):
     global args
 
     # train_data = list(filter(SimpleLengthModel.data_filter, train_data))
     # val_data = list(filter(SimpleLengthModel.data_filter, val_data))
 
-    model = RNNModel(feature_dims=train_data[0].feature_dim, model_dir=args.output_dir)
+    model = RNNModel(feature_dims=train_data[0].feature_dim, hidden_units=80, model_dir=args.output_dir)
     if args.checkpoint is not None:
         model.restore(args.checkpoint)
     data_provider = batch_data_provider(train_data, batch_size=batch_size)
@@ -79,13 +79,12 @@ def train(train_data, val_data, steps = 5000, val_per_steps = 200, checkpoint_pe
             result = val(model, val_data)
             model.init_streaming()
             logging.info("validation for step = {}: {}".format(model.global_step, result))
-
         if model.global_step % checkpoint_per_steps == 0:
             model.save_checkpoint()
             logging.info("save checkpoint at {}".format(model.global_step))
 
-        if model.global_step % 1000 == 0:
-            learning_rate *= 0.5 
+        if model.global_step % 2000 == 0:
+            learning_rate *= 0.2 
             logging.info("current learning rate = {}".format(learning_rate))
 
 def test(data, batch_size=64, filename='roc.png'):
@@ -168,6 +167,8 @@ if __name__ == '__main__':
     kfolds = model_selection.KFold(n_splits = 10, shuffle = True, random_state=args.seed)
     train_index, val_index = next(kfolds.split(data))
     train_data, val_data = [data[i] for i in train_index], [data[i] for i in val_index]
+    train_data = list(filter(lambda l : l.length > 0, train_data))
+    val_data = filter(lambda l : l.length > 0, val_data)
     val_data = list(sorted(val_data, key=attrgetter('length')))
 
     if args.action is None:
@@ -177,10 +178,12 @@ if __name__ == '__main__':
             args.action = 'train'
 
     if args.action == 'train':
-        train(train_data, val_data, batch_size=40, learning_rate=5e-3)
+        train(train_data, val_data, batch_size=40, learning_rate=0.01)
     elif args.action == 'baseline':
         # baseline(list(filter(SimpleLengthModel.data_filter, val_data)))
-        baseline(val_data, filename='roc_baseline_full.png')
+        lengths = np.array(list(map(attrgetter('length'), train_data)))
+        print(np.min(lengths), np.max(lengths), np.mean(lengths))
+        # baseline(val_data, filename='roc_baseline_full.png')
     elif args.action == 'test':
         # test(list(filter(SimpleLengthModel.data_filter, val_data)), filename='roc_1k.png')
         test(val_data, filename='roc_model.png')
