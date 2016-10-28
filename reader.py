@@ -87,8 +87,13 @@ class Loci:
                 extract_seq =  reverse_complement(extract_seq)
             self.seq = extract_seq
 
+    def extend(self, window = 100):
+        self.start = max(self.start - window, 0)
+        self.end = self.end + window
+
     def decode_seq(self):
         if self.seq is not None:
+            self.end = self.start + len(self.seq)
             seq = np.array(list(self.seq))
             self.seq = np.array((seq == 'G') + (seq == 'C') * 2 + (seq == 'T') * 3)
 
@@ -222,9 +227,11 @@ def filter_negative(locis_pos, locis_neg):
 def read_data():
     T0 = default_timer()
     # Loci.extract_func.append(AluFeatureExtrator(components=20, model_file="hmm_Alu_big.pkl"))
-    Loci.extract_func.append(AluFeatureExtrator(components=20, model_file="hmm_Alu_big.pkl"))
+    # Loci.extract_func.append(AluFeatureExtrator(components=20, model_file="hmm_Alu_big.pkl"))
+    input_file = 'filt_locis.bin'
+    # input_file = 'extend_locis.bin'
     try:
-        with open('filt_locis.bin', 'rb') as f:
+        with open(input_file, 'rb') as f:
             locis = pkl.load(f)
     except IOError:
         locis = read_sequence('hsa_hg19_Rybak2015.bed', 1, True)
@@ -237,7 +244,7 @@ def read_data():
         for l in tqdm(locis):
             l.init_seq()
 
-        with open('filt_locis.bin', 'wb') as f:
+        with open(input_file, 'wb') as f:
             pkl.dump(locis, f)
     print('read data used %.3fs' % (default_timer() - T0))
 

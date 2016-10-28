@@ -28,10 +28,10 @@ from __future__ import print_function
 
 import os
 import tensorflow as tf
-from tensorflow.contrib import learn, layers, metrics, framework
+from tensorflow.contrib import learn, metrics, framework
 
 class RNNModel:
-    def __init__(self, feature_dims, hidden_units = 50, model_dir = None):
+    def __init__(self, feature_dims, hidden_units = None, layers=1, model_dir = None):
         self.model_dir = model_dir
 
         x = tf.placeholder(tf.float32, [None, None, feature_dims])  
@@ -40,6 +40,8 @@ class RNNModel:
         self.x, self.y, self.length = x, y, length
 
         cell = tf.nn.rnn_cell.LSTMCell(hidden_units, state_is_tuple=True)
+        if layers > 1:
+            cell = tf.nn.rnn_cell.MultiRNNCell([cell] * layers, state_is_tuple=True)
 
         output, state = tf.nn.dynamic_rnn(
             cell=cell,
@@ -56,7 +58,7 @@ class RNNModel:
         relevant = tf.gather(flat, index)
 
 
-        logit = layers.fully_connected(inputs=relevant, 
+        logit = tf.contrib.layers.fully_connected(inputs=relevant, 
             num_outputs=1, 
             activation_fn=None,
             biases_initializer=None
