@@ -95,9 +95,9 @@ In our method, RNA sequences are regarded as long strings ,which are combination
 
 \subsection{Data Pre-Processing}
 
-We find that in our RNA sequence data, the positive examples are always longer than the negative examples and negative examples are mostly exons. If we use the raw data as inputs, the length of sequence will have main effects in our prediction, which will weaken other crucial factors in the training process. So we extract the exons segment in positive examples and use it as the positive inputs. \\
+We find that in our RNA sequence data, the positive examples are always longer than the negative examples and negative examples are mostly exons. If we use the raw data as inputs, the length of sequence will have dominant effects in our prediction, which will weaken other crucial factors in the training process and make this problem trivial. So we extract the exons segment in positive examples and use it as the positive inputs. Then both postive and negative example will represent an exon of genome. This makes the machine learning problem well defined. Though this problem is not exactly the same as the original one, we believe the method in this problem can be easily transferred to the original problem. \\
 
-Then we encode the strings we have to get the feature vector. A base is encoded as a 4-dimension vector. For instance, the 'A' base seen as character 'A' will transform to $[1,0,0,0]'$. After data processing, the sequences will presented as a $4*l$ matrix and we use the feature vectors as the inputs.\\
+In feature extraction stage, we simply encode the strings we have to get the feature vector. A base is encoded as a 4-dimension vector. For instance, the 'A' base seen as character 'A' will transform to $[1,0,0,0]'$. After data processing, the sequences will presented as a $l\times 4$ matrix and for each time step $t=1,2,\cdots,l$ we use the $t-$th row as the inputs of RNN.\\
 
 \subsection{Neural Networks Training}
 
