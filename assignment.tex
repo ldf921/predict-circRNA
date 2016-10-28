@@ -1,0 +1,180 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Short Sectioned Assignment
+% LaTeX Template
+% Version 1.0 (5/5/12)
+%
+% This template has been downloaded from:
+% http://www.LaTeXTemplates.com
+%
+% Original author:
+% Frits Wenneker (http://www.howtotex.com)
+%
+% License:
+% CC BY-NC-SA 3.0 (http://creativecommons.org/licenses/by-nc-sa/3.0/)
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%----------------------------------------------------------------------------------------
+%	PACKAGES AND OTHER DOCUMENT CONFIGURATIONS
+%----------------------------------------------------------------------------------------
+
+\makeatother
+\documentclass[paper=a4, fontsize=11pt] {scrartcl} % A4 paper and 11pt font size
+
+\usepackage[T1]{fontenc} % Use 8-bit encoding that has 256 glyphs
+\usepackage{fourier} % Use the Adobe Utopia font for the document - comment this line to return to the LaTeX default
+\usepackage[english]{babel} % English language/hyphenation
+\usepackage{amsmath,amsfonts,amsthm} % Math packages
+\usepackage{graphicx}
+
+
+\usepackage{lipsum} % Used for inserting dummy 'Lorem ipsum' text into the template
+
+\usepackage{sectsty} % Allows customizing section commands
+\allsectionsfont{\centering \normalfont\scshape} % Make all sections centered, the default font and small caps
+
+\usepackage{fancyhdr} % Custom headers and footers
+\pagestyle{fancyplain} % Makes all pages in the document conform to the custom headers and footers
+\fancyhead{} % No page header - if you want one, create it in the same way as the footers below
+\fancyfoot[L]{} % Empty left footer
+\fancyfoot[C]{} % Empty center footer
+\fancyfoot[R]{\thepage} % Page numbering for right footer
+\renewcommand{\headrulewidth}{0pt} % Remove header underlines
+\renewcommand{\footrulewidth}{0pt} % Remove footer underlines
+\setlength{\headheight}{13.6pt} % Customize the height of the header
+
+\numberwithin{equation}{section} % Number equations within sections (i.e. 1.1, 1.2, 2.1, 2.2 instead of 1, 2, 3, 4)
+\numberwithin{figure}{section} % Number figures within sections (i.e. 1.1, 1.2, 2.1, 2.2 instead of 1, 2, 3, 4)
+\numberwithin{table}{section} % Number tables within sections (i.e. 1.1, 1.2, 2.1, 2.2 instead of 1, 2, 3, 4)
+
+\setlength\parindent{0pt} % Removes all indentation from paragraphs - comment this line for an assignment with lots of text
+
+%----------------------------------------------------------------------------------------
+%	TITLE SECTION
+%----------------------------------------------------------------------------------------
+\newcommand{\horrule}[1]{\rule{\linewidth}{#1}} % Create horizontal rule command with 1 argument of height
+
+\title{	
+\normalfont \normalsize 
+\textsc{Tsinghua University, Institute for Interdiscplinary Information Sciences} \\ [25pt] % Your university, school and/or department name(s)
+\horrule{0.5pt} \\[0.4cm] % Thin top horizontal rule
+\huge Project 1 Report \\ % The assignment title
+\horrule{2pt} \\[0.5cm] % Thick bottom horizontal rule
+}
+
+\author{Tingfung Lau, Ruogu Lin} % Your name
+
+\date{\normalsize\today} % Today's date or a custom date
+
+\begin{document}
+
+\maketitle % Print the title
+
+%----------------------------------------------------------------------------------------
+%	PART 1
+%----------------------------------------------------------------------------------------
+
+\section{Introduction}
+
+
+%------------------------------------------------
+\subsection{Problem Description}
+
+In the problem, we are given reference genome of \emph{Homo sapiens} (i.e., the DNA sequences) and the genomic loci of all circRNAs. Given a certain genomic locus, our goal is to develop a classifier using machine learning alogrithms to predict whether a pair of two loci will form a circRNA or not.\\
+
+\subsection{Method Overview}
+In our method, RNA sequences are regarded as long strings ,which are combinations of characters 'A', 'T', 'C' and 'G'. Briefly, We train Recurrent Neural Network(RNN) and Long Short Term Memory Unit(LSTM) to get a discriminative model and predict whether the input will form a circRNA or not.\\
+%----------------------------------------------------------------------------------------
+%	PART 2
+%----------------------------------------------------------------------------------------
+
+\section{Method}
+
+
+%------------------------------------------------
+
+\subsection{Data Pre-Processing}
+
+We find that in our RNA sequence data, the positive examples are always longer than the negative examples and negative examples are mostly exons. If we use the raw data as inputs, the length of sequence will have main effects in our prediction, which will weaken other crucial factors in the training process. So we extract the exons segment in positive examples and use it as the positive inputs. \\
+
+Then we encode the strings we have to get the feature vector. A base is encoded as a 4-dimension vector. For instance, the 'A' base seen as character 'A' will transform to $[1,0,0,0]'$. After data processing, the sequences will presented as a $4*l$ matrix and we use the feature vectors as the inputs.\\
+
+\subsection{Neural Networks Training}
+
+In our method, the problem is redefined as a character-level text classification problem. We establish a Recurrent Neural Network(RNN) and use 50 LSTM unit in 1 layer. (We have tried to increase the number of LSTM unit but it didn't significantly improve our result so we think 50 units a layer is enough.) \\
+
+There is a small trick we use while training. In one hand, we set the limit of the max length of input to 1000 in training process. If the sequence is longer than the threshold, we randomly intercept a shorter segment from the original sequence as the input. It seems like random crop or dense crop. The benefit of this operation is avoiding extremely long sequences slowing down the training progress obviously. In the other hand, we use the whole original sequences as the inputs when testing, which 
+make sure of our performance.
+
+\subsubsection{Long-Short Term Memory}
+
+Traditional neural networks seems to have a major shortcoming while processing sequences because of the lack of previous information using. So we decide to use Recurrent Neural Networks, which are networks with loops in them, allowing information to persist. But traditional RNNs also fails when face the long sequences and there is a need of long-term dependencies. So finally we choose 
+Long-Short Term Memory, known as LSTM networks.\\
+
+LSTMs are explicitly designed to avoid the long-term dependency problem. Remembering information for long periods of time is practically their default behavior. It's useful in our project because the length of RNA is quite long. \\
+
+The LSTM model is  presented as follows.\\
+
+\[\begin{gathered}
+  {f_t} = \sigma \left( {{W_f} \cdot \left[ {{h_{t - 1}},{x_t}} \right] + {b_f}} \right) \hfill \\
+  {i_t} = \sigma \left( {{W_i} \cdot \left[ {{h_{t - 1}},{x_t}} \right] + {b_i}} \right) \hfill \\
+  {{\tilde C}_t} = \tanh \left( {{W_C} \cdot \left[ {{h_{t - 1}},{x_t}} \right] + {b_C}} \right) \hfill \\
+  {C_t} = {f_t} * {C_{t - 1}} + {i_t} * {{\tilde C}_t} \hfill \\
+  {o_t} = \sigma \left( {{W_o} \cdot \left[ {{h_{t - 1}},{x_t}} \right] + {b_o}} \right) \hfill \\
+  {h_t} = {o_t} * \tanh \left( {{C_t}} \right) \hfill \\ 
+\end{gathered} \]
+
+	\begin{figure}[htbp]
+	\centering
+	\includegraphics[width=\textwidth]{lstm.png}
+	\end{figure}
+	
+\subsection{Flow Chart}
+	\begin{figure}[htbp]
+	\centering
+	\includegraphics[width=\textwidth]{flow.png}0
+	\end{figure}
+%------------------------------------------------
+
+
+
+%----------------------------------------------------------------------------------------
+%	PART 3
+%----------------------------------------------------------------------------------------
+
+\section{Experiments}
+
+Using GPU to train neural network use much power. To save electricity and be environmentally friendly, we just conduct experiment on one of the 10 folds randomly selected. The result is list in \ref{results}. We can see that only one layer LSTM can achieve a rather promising result. Adding one more layer only brings marginally better result. So we don't try to expand the size of our model more. 
+
+The last model is our attempt to bring more contextual information to this classification problem. Since much information about whether a genome is circ-RNA may be hidden in noncoding regions, so we think extend sequence a little bit to bring some no  We extend the exons with 100 bases in data preprocessing. For example, an exon with locis $start,end$ will be extend to $start-100,end+100$. However, the result of this model is slightly poorer than previous ones. We think this may be due to the max length limit 1000 of our RNN model. Since we use a random crop for longer sequences. So this extra information is included in some training data but not in other data, and it bring in some noise to the model. To solve this problem, we may need to find better appoarch to deal with long sequences.
+%------------------------------------------------
+\begin{table}[]
+\centering
+\caption{Performance of Model in One Random Fold}
+\label{results}
+\begin{tabular}{llll}
+\hline
+Model & Area Under Curve & Mean Average Precision-Recall & F1 score \\ \hline
+LSTM\_Layer1 & 0.870            & 0.892                         & 0.829    \\
+LSTM\_Layer2 & 0.876 & 0.896 & 0.833  \\  
+LSTM\_Layer1\_Extend & 0.849 &  0.863 & 0.817 \\ \hline
+\end{tabular}
+\end{table}
+
+%----------------------------------------------------------------------------------------
+
+%----------------------------------------------------------------------------------------
+%	PART 4
+%----------------------------------------------------------------------------------------
+
+\section{Conclusion}
+
+We offer a machine learning method to predict whether a pair of two loci will form a circRNA or not. The strength of our method is obvious. We build up an End-To-End Framework and use deep learning methods so we avoid complex hand-crafted feature design and feature engineering. It's easy to train and the time cost and accuracy is acceptable, which means it can be actually used.\\
+
+The limitation of our method is that compared to traditional learning methods, our computation is not that fast because of using Neural Networks, especially without GPU accelerating. And we are lack of  prior information because of few biological knowledge introduced. Our performance can be improved with more biological information involved such as Alu, and it's our future plan to develop the method in this way.\\
+%------------------------------------------------
+\bibliographystyle{plain}
+\nocite{*}
+\bibliography{report.bib}
+
+\end{document}
